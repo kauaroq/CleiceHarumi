@@ -2060,18 +2060,8 @@
     } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
     import { getDatabase, onValue, ref, set, update, remove } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js';
 
-    const envResponse = await fetch('./.env', { cache: 'no-store' });
-    if (!envResponse.ok) {
-      throw new Error('Nao foi possivel carregar o arquivo .env.');
-    }
-    const envText = await envResponse.text();
-    const apiKey = envText.match(/^FIREBASE_API_KEY=(.+)$/m)?.[1]?.trim();
-    if (!apiKey) {
-      throw new Error('FIREBASE_API_KEY nao foi definida no arquivo .env.');
-    }
-
     const firebaseConfig = {
-      apiKey,
+      apiKey: 'AIzaSyC8s_v2teHFhbdYwa55fvmf9QpsQOGqEAg',
       authDomain: 'cleiceharumi.firebaseapp.com',
       databaseURL: 'https://cleiceharumi-default-rtdb.firebaseio.com',
       projectId: 'cleiceharumi',
