@@ -2,17 +2,13 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [main]
-  workflow_dispatch:
+    branches:
+      - main # ou o nome da sua branch principal (master)
 
 permissions:
   contents: read
   pages: write
   id-token: write
-
-concurrency:
-  group: pages
-  cancel-in-progress: true
 
 jobs:
   deploy:
@@ -24,19 +20,19 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Configure GitHub Pages
-        uses: actions/configure-pages@v5
+      - name: Inserir Firebase API Key
+        # Esse comando substitui a apiKey vazia pela sua secret antes de fazer o deploy
+        run: |
+          sed -i "s/apiKey: ''/apiKey: '${{ secrets.FIREBASE_API_KEY }}'/g" index.html
 
-      - name: Create runtime environment file
-        env:
-          FIREBASE_API_KEY: ${{ secrets.FIREBASE_API_KEY }}
-        run: printf 'FIREBASE_API_KEY=%s\n' "$FIREBASE_API_KEY" > .env
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
 
-      - name: Upload site artifact
+      - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: .
+          path: '.'
 
-      - name: Deploy
+      - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
