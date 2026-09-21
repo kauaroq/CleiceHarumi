@@ -1,0 +1,12 @@
+# Configuracoes locais e variaveis de ambiente
+.env
+.env.*
+!.env.example
+
+# Configuracao local do Firebase
+firebase-config.local.js
+firebase-config.*.local.js
+
+# Chaves privadas do Firebase Admin SDK
+serviceAccountKey.json
+firebase-adminsdk-*.json
