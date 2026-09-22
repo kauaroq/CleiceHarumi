@@ -1443,17 +1443,38 @@
         font-size: clamp(32px, 8vw, 46px);
       }
 
+      .cat-header {
+        flex-wrap: wrap;
+      }
+
       .cat-header h2 {
         font-size: 22px;
       }
 
-      .cat-header-actions,
+      .cat-header-actions {
+        opacity: 1;
+        width: 100%;
+        margin-left: 38px;
+        margin-top: 2px;
+        flex-wrap: wrap;
+      }
+
+      .cat-header-actions .btn,
+      .entry-actions .btn {
+        font-size: 10.5px;
+        padding: 5px 8px;
+      }
+
       .entry-actions {
         opacity: 1;
+        grid-column: 2;
+        flex-direction: row;
+        flex-wrap: wrap;
+        margin-top: 4px;
       }
 
       .entry {
-        grid-template-columns: 32px 1fr auto;
+        grid-template-columns: 32px minmax(0, 1fr);
         gap: 4px 8px;
         padding: 16px 0;
       }
@@ -1876,6 +1897,14 @@
     }
 
     @media (max-width: 860px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+      nav.rail {
+        background: transparent;
+        padding: 24px 0 16px 0;
+      }
+
       .hero {
         min-height: auto;
       }
