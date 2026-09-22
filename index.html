@@ -1364,6 +1364,7 @@
     @media (max-width: 860px) {
       .layout {
         grid-template-columns: 1fr;
+        padding: 0 16px;
       }
 
       nav.rail {
@@ -1371,11 +1372,37 @@
         height: auto;
         border-right: none;
         border-bottom: 1px solid var(--line);
-        padding: 28px 0;
+        padding: 24px 0 16px 0;
+        margin-bottom: 24px;
+      }
+
+      #railLinks {
+        display: flex;
+        flex-direction: row;
+        overflow-x: auto;
+        gap: 8px;
+        padding-bottom: 16px;
+        margin-bottom: 16px;
+        border-bottom: 1px solid var(--line);
+        -webkit-overflow-scrolling: touch;
+      }
+
+      .rail-link {
+        margin-left: 0;
+        padding: 8px 12px;
+        border-left: none;
+        border-bottom: 2px solid transparent;
+        white-space: nowrap;
+        flex-shrink: 0;
+      }
+
+      .rail-link.active {
+        border-left-color: transparent;
+        border-bottom-color: var(--redact-bright);
       }
 
       main.content {
-        padding: 36px 0 80px;
+        padding: 0 0 64px 0;
       }
 
       .closing {
@@ -1389,6 +1416,10 @@
         margin-bottom: 18px;
       }
 
+      .hero {
+        padding: 32px 16px 0;
+      }
+
       .stat-block {
         text-align: left;
       }
@@ -1398,9 +1429,48 @@
         align-items: flex-start;
       }
 
+      h1.headline {
+        font-size: clamp(32px, 10vw, 54px);
+      }
+
+      .hero-desc {
+        font-size: 16px;
+      }
+
+      .stat-number {
+        font-size: clamp(32px, 8vw, 46px);
+      }
+
+      .cat-header h2 {
+        font-size: 22px;
+      }
+
       .cat-header-actions,
       .entry-actions {
         opacity: 1;
+      }
+
+      .entry {
+        grid-template-columns: 32px 1fr auto;
+        gap: 4px 8px;
+        padding: 16px 0;
+      }
+
+      .entry-idx-col {
+        padding-top: 2px;
+      }
+
+      .entry-index {
+        font-size: 11px;
+      }
+
+      .entry-body h3 {
+        font-size: 16px;
+      }
+
+      .entry-notes {
+        font-size: 14px;
+        padding: 8px;
       }
 
       .board-canvas {
@@ -1859,93 +1929,6 @@
 
       .closing::before {
         display: none;
-      }
-    }
-    @media (max-width: 768px) {
-      .layout {
-        grid-template-columns: 1fr;
-        padding: 0 16px;
-      }
-
-      nav.rail {
-        position: sticky;
-        top: 0;
-        height: auto;
-        flex-direction: row;
-        overflow-x: auto;
-        padding: 16px 0;
-        border-right: none;
-        border-bottom: 1px solid var(--line);
-        background: var(--bg);
-        z-index: 100;
-        margin-bottom: 24px;
-        align-items: center;
-        gap: 16px;
-      }
-
-      /* Hide extra rail elements on mobile for simplicity, keeping just links */
-      .rail-title, .rail-actions, .account-panel, .rail-search, .rail-footer {
-        display: none;
-      }
-
-      .rail-link {
-        margin-left: 0;
-        padding: 8px 12px;
-        border-left: none;
-        border-bottom: 2px solid transparent;
-        white-space: nowrap;
-      }
-
-      .rail-link.active {
-        border-left-color: transparent;
-        border-bottom-color: var(--redact-bright);
-      }
-
-      main.content {
-        padding: 0 0 64px 0;
-      }
-
-      .hero {
-        padding: 32px 16px 0;
-      }
-
-      h1.headline {
-        font-size: clamp(32px, 10vw, 42px);
-      }
-
-      .hero-desc {
-        font-size: 16px;
-      }
-
-      .stat-number {
-        font-size: clamp(32px, 8vw, 46px);
-      }
-
-      .cat-header h2 {
-        font-size: 22px;
-      }
-
-      .entry {
-        grid-template-columns: 32px 1fr auto;
-        gap: 4px 8px;
-        padding: 16px 0;
-      }
-
-      .entry-idx-col {
-        padding-top: 2px;
-      }
-
-      .entry-index {
-        font-size: 11px;
-      }
-
-      .entry-body h3 {
-        font-size: 16px;
-      }
-
-      .entry-notes {
-        font-size: 14px;
-        padding: 8px;
       }
     }
   </style>
