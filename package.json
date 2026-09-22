@@ -1,0 +1,9 @@
+{
+  "name": "dossie-harumi",
+  "version": "1.0.0",
+  "description": "Dossiê Investigativo",
+  "scripts": {
+    "build": "sed -i \"s/FIREBASE_API_KEY_PLACEHOLDER/$FIREBASE_API_KEY/g\" index.html"
+  },
+  "dependencies": {}
+}
