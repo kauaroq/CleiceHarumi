@@ -3518,11 +3518,11 @@
 
         const { initializeApp } = appMod;
         const { getAuth, onAuthStateChanged, setPersistence, browserLocalPersistence,
-                signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } = authMod;
+          signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } = authMod;
         const { getDatabase, ref, set, onValue, update, remove } = dbMod;
 
         const firebaseConfig = {
-          apiKey: '',
+          apiKey: 'FIREBASE_API_KEY_PLACEHOLDER',
           authDomain: 'cleiceharumi.firebaseapp.com',
           databaseURL: 'https://cleiceharumi-default-rtdb.firebaseio.com',
           projectId: 'cleiceharumi',
