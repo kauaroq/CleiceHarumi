@@ -3,7 +3,8 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches:
-      - main # ou o nome da sua branch principal (master)
+      - main
+      - master
 
 permissions:
   contents: read
@@ -21,9 +22,9 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Inserir Firebase API Key
-        # Esse comando substitui a apiKey vazia pela sua secret antes de fazer o deploy
+        # Substitui o placeholder pela secret
         run: |
-          sed -i "s/apiKey: ''/apiKey: '${{ secrets.FIREBASE_API_KEY }}'/g" index.html
+          sed -i "s/FIREBASE_API_KEY_PLACEHOLDER/${{ secrets.FIREBASE_API_KEY }}/g" index.html
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
