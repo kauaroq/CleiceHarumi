@@ -2123,28 +2123,10 @@
   </div>
   <input type="file" id="imageInput" accept="image/*" multiple="" hidden="">
 
-  <script type="module">
-    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js';
-    import {
-      browserLocalPersistence, createUserWithEmailAndPassword, getAuth, onAuthStateChanged,
-      setPersistence, signInWithEmailAndPassword, signOut
-    } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js';
-    import { getDatabase, onValue, ref, set, update, remove } from 'https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js';
+  <script>
+    // Firebase bridge — null until Firebase CDN loads successfully
+    let _fb = null;
 
-    const firebaseConfig = {
-      apiKey: '',
-      authDomain: 'cleiceharumi.firebaseapp.com',
-      databaseURL: 'https://cleiceharumi-default-rtdb.firebaseio.com',
-      projectId: 'cleiceharumi',
-      storageBucket: 'cleiceharumi.firebasestorage.app',
-      messagingSenderId: '630956858567',
-      appId: '1:630956858567:web:2b03868ec9bfbe85d4b2e2',
-      measurementId: 'G-FMGVQZBT5H'
-    };
-
-    const firebaseApp = initializeApp(firebaseConfig);
-    const auth = getAuth(firebaseApp);
-    const database = getDatabase(firebaseApp);
     const STORAGE_KEY = 'dossie-investigativo-v1';
 
     let state = { sections: [] };
@@ -2153,7 +2135,7 @@
     let currentUser = null;
     let stopDatabaseListener = null;
     let databaseReady = false;
-    let syncInProgress = true;
+    let syncInProgress = false;
     let saveTimeout = null;
     let pendingRemoteSignature = null;
     let latestLocalSignature = null;
@@ -2222,7 +2204,7 @@
     }
 
     function scheduleDatabaseSave() {
-      if (!currentUser || !databaseReady) return;
+      if (!currentUser || !databaseReady || !_fb) return;
       clearTimeout(saveTimeout);
       setAccountStatus('Salvando alterações na nuvem...');
       saveTimeout = setTimeout(async () => {
@@ -2231,7 +2213,7 @@
         const signature = JSON.stringify(stateToSave);
         pendingRemoteSignature = signature;
         try {
-          await set(ref(database, `users/${currentUser.uid}/dossier`), stateToSave);
+          await _fb.set(_fb.ref(_fb.database, `users/${currentUser.uid}/dossier`), stateToSave);
           setAccountStatus(`Sincronizado com ${currentUser.email || 'seu e-mail'}.`);
           hasShownSyncError = false;
         } catch (error) {
@@ -2972,8 +2954,8 @@
         if (!item) return;
         item.images = (item.images || []).filter(img => img.id !== imageId);
         delete remoteImages[imageId];
-        if (currentUser) {
-          remove(ref(database, `users/${currentUser.uid}/images/${imageId}`)).catch(console.error);
+        if (currentUser && _fb) {
+          _fb.remove(_fb.ref(_fb.database, `users/${currentUser.uid}/images/${imageId}`)).catch(console.error);
         }
         touchUpdatedAt(item);
         saveState();
@@ -3280,8 +3262,8 @@
           const imgId = uid();
           item.images.push({ id: imgId, dataUrl });
           remoteImages[imgId] = dataUrl;
-          if (currentUser) {
-            set(ref(database, `users/${currentUser.uid}/images/${imgId}`), dataUrl).catch(console.error);
+          if (currentUser && _fb) {
+            _fb.set(_fb.ref(_fb.database, `users/${currentUser.uid}/images/${imgId}`), dataUrl).catch(console.error);
           }
         } catch (err) {
           console.error('Falha ao processar imagem:', err);
@@ -3518,192 +3500,232 @@
       reader.readAsText(file);
     });
 
-    // ---------- Firebase authentication and synchronization ----------
-    function setLoginControlsDisabled(disabled) {
-      emailLoginBtn.disabled = disabled;
-      createAccountBtn.disabled = disabled;
-    }
-
-    function explainAuthError(error) {
-      const messages = {
-        'auth/invalid-email': 'Digite um e-mail válido.',
-        'auth/invalid-credential': 'E-mail ou senha incorretos.',
-        'auth/email-already-in-use': 'Este e-mail já possui uma conta. Use “Entrar”.',
-        'auth/weak-password': 'A senha precisa ter pelo menos 6 caracteres.',
-        'auth/operation-not-allowed': 'O login por e-mail e senha ainda não foi habilitado no Firebase.',
-        'auth/too-many-requests': 'Muitas tentativas. Aguarde um pouco antes de tentar novamente.'
-      };
-      return messages[error.code] || 'Não foi possível autenticar agora. Tente novamente.';
-    }
-
-    async function authenticateWithEmail(createAccount) {
-      if (!emailLoginForm.reportValidity()) return;
-      const email = loginEmailInput.value.trim();
-      const password = loginPasswordInput.value;
-      setLoginControlsDisabled(true);
-      setAccountStatus(createAccount ? 'Criando sua conta...' : 'Entrando...');
-      try {
-        if (createAccount) {
-          await createUserWithEmailAndPassword(auth, email, password);
-        } else {
-          await signInWithEmailAndPassword(auth, email, password);
-        }
-      } catch (error) {
-        console.error('Falha na autenticação por e-mail:', error);
-        const message = explainAuthError(error);
-        setAccountStatus(message);
-        showAlert(message);
-      } finally {
-        setLoginControlsDisabled(false);
-      }
-    }
-
-    emailLoginForm.addEventListener('submit', (event) => {
-      event.preventDefault();
-      authenticateWithEmail(false);
-    });
-
-    createAccountBtn.addEventListener('click', () => {
-      authenticateWithEmail(true);
-    });
-
-    logoutBtn.addEventListener('click', async () => {
-      try {
-        await signOut(auth);
-      } catch (error) {
-        console.error('Falha ao sair da conta:', error);
-        showAlert('Não foi possível sair da conta agora. Tente novamente.');
-      }
-    });
-
-    onAuthStateChanged(auth, (user) => {
-      if (stopDatabaseListener) {
-        stopDatabaseListener();
-        stopDatabaseListener = null;
-      }
-      clearTimeout(saveTimeout);
-      currentUser = user;
-      databaseReady = false;
-      syncInProgress = false;
-
-      if (!user) {
-        localStorageKey = STORAGE_KEY;
-        state = legacyState || readLocalState(localStorageKey) || { sections: [] };
-        emailLoginForm.hidden = false;
-        logoutBtn.hidden = true;
-        render();
-        setAccountStatus('Entre com seu e-mail para sincronizar.');
-        return;
-      }
-
-      emailLoginForm.hidden = true;
-      logoutBtn.hidden = false;
-      loginPasswordInput.value = '';
-      localStorageKey = `${STORAGE_KEY}:user:${user.uid}`;
-      state = readLocalState(localStorageKey) || { sections: [] };
-      syncInProgress = true;
-      render();
-      setAccountStatus('Carregando seu dossiê da nuvem...');
-      const dossierRef = ref(database, `users/${user.uid}/dossier`);
-      let receivedInitialData = false;
-
-      const imagesRef = ref(database, `users/${user.uid}/images`);
-      onValue(imagesRef, (snap) => {
-        if (!currentUser || currentUser.uid !== user.uid) return;
-        remoteImages = snap.val() || {};
-        let updated = false;
-        state.sections.forEach(s => s.items && s.items.forEach(i => i.images && i.images.forEach(img => {
-          if (remoteImages[img.id] && img.dataUrl !== remoteImages[img.id]) {
-            img.dataUrl = remoteImages[img.id];
-            updated = true;
-          }
-        })));
-        if (updated && databaseReady) {
-          saveLocalState();
-          render();
-        }
-      });
-
-      stopDatabaseListener = onValue(dossierRef, async (snapshot) => {
-        if (!currentUser || currentUser.uid !== user.uid) return;
-
-        const remoteState = snapshot.exists() ? normalizeState(snapshot.val()) : { sections: [] };
-        let needsMigration = false;
-        const migrationImages = {};
-        remoteState.sections.forEach(s => s.items && s.items.forEach(i => i.images && i.images.forEach(img => {
-          if (img.dataUrl) {
-            needsMigration = true;
-            migrationImages[img.id] = img.dataUrl;
-            delete img.dataUrl;
-          }
-          if (remoteImages[img.id]) {
-            img.dataUrl = remoteImages[img.id];
-          } else {
-            const cSec = state.sections.find(cs => cs.id === s.id);
-            const cItem = cSec && cSec.items.find(ci => ci.id === i.id);
-            const cImg = cItem && cItem.images.find(cimg => cimg.id === img.id);
-            if (cImg && cImg.dataUrl) img.dataUrl = cImg.dataUrl;
-          }
-        })));
-        if (needsMigration) update(imagesRef, migrationImages).catch(console.error);
-        const remoteSignature = JSON.stringify(remoteState);
-
-        if (!receivedInitialData) {
-          receivedInitialData = true;
-          if (snapshot.exists()) {
-            state = remoteState;
-            saveLocalState();
-            latestLocalSignature = remoteSignature;
-          } else if (state.sections.length > 0) {
-            try {
-              const stateToSave = JSON.parse(JSON.stringify(state));
-              stateToSave.sections.forEach(s => s.items && s.items.forEach(i => i.images && i.images.forEach(img => delete img.dataUrl)));
-              await set(dossierRef, stateToSave);
-            } catch (error) {
-              console.error('Não foi possível restaurar a cópia local:', error);
-            }
-          } else if (legacyState && legacyState.sections.length > 0) {
-            const migrate = await showConfirm('Há um dossiê antigo salvo neste navegador. Deseja copiá-lo para esta conta?');
-            if (migrate && currentUser && currentUser.uid === user.uid) {
-              state = normalizeState(legacyState);
-              saveLocalState();
-              try {
-                const stateToSave = JSON.parse(JSON.stringify(state));
-                stateToSave.sections.forEach(s => s.items && s.items.forEach(i => i.images && i.images.forEach(img => delete img.dataUrl)));
-                await set(dossierRef, stateToSave);
-              } catch (error) {
-                console.error('Não foi possível migrar o dossiê antigo:', error);
-              }
-            }
-          }
-          databaseReady = true;
-          syncInProgress = false;
-          render();
-          setAccountStatus(`Sincronizado com ${user.email || 'seu e-mail'}.`);
-          return;
-        }
-
-        if (pendingRemoteSignature && remoteSignature !== latestLocalSignature) return;
-        state = remoteState;
-        saveLocalState();
-        latestLocalSignature = remoteSignature;
-        render();
-        setAccountStatus(`Sincronizado com ${user.email || 'seu e-mail'}.`);
-      }, (error) => {
-        console.error('Não foi possível ler o dossiê remoto:', error);
-        syncInProgress = false;
-        setAccountStatus('Dados locais ativos; não foi possível acessar a nuvem.');
-        showAlert('Não foi possível acessar o Firebase. Confirme as regras do Realtime Database e tente novamente.');
-      });
-    });
-
     // ---------- Init ----------
+    emailLoginForm.hidden = true;
     loadState();
     legacyState = normalizeState(state);
     render();
-    setPersistence(auth, browserLocalPersistence).catch((error) => {
-      console.error('Não foi possível manter a sessão do Firebase:', error);
-    });
+    setAccountStatus('Carregando conexão com a nuvem...');
+
+    // ---------- Firebase (async, non-blocking) ----------
+    (async function initFirebase() {
+      try {
+        const [appMod, authMod, dbMod] = await Promise.all([
+          import('https://www.gstatic.com/firebasejs/10.14.1/firebase-app.js'),
+          import('https://www.gstatic.com/firebasejs/10.14.1/firebase-auth.js'),
+          import('https://www.gstatic.com/firebasejs/10.14.1/firebase-database.js')
+        ]);
+
+        const { initializeApp } = appMod;
+        const { getAuth, onAuthStateChanged, setPersistence, browserLocalPersistence,
+                signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } = authMod;
+        const { getDatabase, ref, set, onValue, update, remove } = dbMod;
+
+        const firebaseConfig = {
+          apiKey: '',
+          authDomain: 'cleiceharumi.firebaseapp.com',
+          databaseURL: 'https://cleiceharumi-default-rtdb.firebaseio.com',
+          projectId: 'cleiceharumi',
+          storageBucket: 'cleiceharumi.firebasestorage.app',
+          messagingSenderId: '630956858567',
+          appId: '1:630956858567:web:2b03868ec9bfbe85d4b2e2',
+          measurementId: 'G-FMGVQZBT5H'
+        };
+
+        const firebaseApp = initializeApp(firebaseConfig);
+        const auth = getAuth(firebaseApp);
+        const database = getDatabase(firebaseApp);
+
+        _fb = { database, ref, set, onValue, update, remove };
+
+        // Firebase authentication helpers
+        function setLoginControlsDisabled(disabled) {
+          emailLoginBtn.disabled = disabled;
+          createAccountBtn.disabled = disabled;
+        }
+
+        function explainAuthError(error) {
+          const messages = {
+            'auth/invalid-email': 'Digite um e-mail válido.',
+            'auth/invalid-credential': 'E-mail ou senha incorretos.',
+            'auth/email-already-in-use': 'Este e-mail já possui uma conta. Use "Entrar".',
+            'auth/weak-password': 'A senha precisa ter pelo menos 6 caracteres.',
+            'auth/operation-not-allowed': 'O login por e-mail e senha ainda não foi habilitado no Firebase.',
+            'auth/too-many-requests': 'Muitas tentativas. Aguarde um pouco antes de tentar novamente.'
+          };
+          return messages[error.code] || 'Não foi possível autenticar agora. Tente novamente.';
+        }
+
+        async function authenticateWithEmail(createAccount) {
+          if (!emailLoginForm.reportValidity()) return;
+          const email = loginEmailInput.value.trim();
+          const password = loginPasswordInput.value;
+          setLoginControlsDisabled(true);
+          setAccountStatus(createAccount ? 'Criando sua conta...' : 'Entrando...');
+          try {
+            if (createAccount) {
+              await createUserWithEmailAndPassword(auth, email, password);
+            } else {
+              await signInWithEmailAndPassword(auth, email, password);
+            }
+          } catch (error) {
+            console.error('Falha na autenticação por e-mail:', error);
+            const message = explainAuthError(error);
+            setAccountStatus(message);
+            showAlert(message);
+          } finally {
+            setLoginControlsDisabled(false);
+          }
+        }
+
+        emailLoginForm.addEventListener('submit', (event) => {
+          event.preventDefault();
+          authenticateWithEmail(false);
+        });
+
+        createAccountBtn.addEventListener('click', () => {
+          authenticateWithEmail(true);
+        });
+
+        logoutBtn.addEventListener('click', async () => {
+          try {
+            await signOut(auth);
+          } catch (error) {
+            console.error('Falha ao sair da conta:', error);
+            showAlert('Não foi possível sair da conta agora. Tente novamente.');
+          }
+        });
+
+        onAuthStateChanged(auth, (user) => {
+          if (stopDatabaseListener) {
+            stopDatabaseListener();
+            stopDatabaseListener = null;
+          }
+          clearTimeout(saveTimeout);
+          currentUser = user;
+          databaseReady = false;
+          syncInProgress = false;
+
+          if (!user) {
+            localStorageKey = STORAGE_KEY;
+            state = legacyState || readLocalState(localStorageKey) || { sections: [] };
+            emailLoginForm.hidden = false;
+            logoutBtn.hidden = true;
+            render();
+            setAccountStatus('Entre com seu e-mail para sincronizar.');
+            return;
+          }
+
+          emailLoginForm.hidden = true;
+          logoutBtn.hidden = false;
+          loginPasswordInput.value = '';
+          localStorageKey = `${STORAGE_KEY}:user:${user.uid}`;
+          state = readLocalState(localStorageKey) || { sections: [] };
+          syncInProgress = true;
+          render();
+          setAccountStatus('Carregando seu dossiê da nuvem...');
+          const dossierRef = ref(database, `users/${user.uid}/dossier`);
+          let receivedInitialData = false;
+
+          const imagesRef = ref(database, `users/${user.uid}/images`);
+          onValue(imagesRef, (snap) => {
+            if (!currentUser || currentUser.uid !== user.uid) return;
+            remoteImages = snap.val() || {};
+            let updated = false;
+            state.sections.forEach(s => s.items && s.items.forEach(i => i.images && i.images.forEach(img => {
+              if (remoteImages[img.id] && img.dataUrl !== remoteImages[img.id]) {
+                img.dataUrl = remoteImages[img.id];
+                updated = true;
+              }
+            })));
+            if (updated && databaseReady) {
+              saveLocalState();
+              render();
+            }
+          });
+
+          stopDatabaseListener = onValue(dossierRef, async (snapshot) => {
+            if (!currentUser || currentUser.uid !== user.uid) return;
+
+            const remoteState = snapshot.exists() ? normalizeState(snapshot.val()) : { sections: [] };
+            let needsMigration = false;
+            const migrationImages = {};
+            remoteState.sections.forEach(s => s.items && s.items.forEach(i => i.images && i.images.forEach(img => {
+              if (img.dataUrl) {
+                needsMigration = true;
+                migrationImages[img.id] = img.dataUrl;
+                delete img.dataUrl;
+              }
+              if (remoteImages[img.id]) {
+                img.dataUrl = remoteImages[img.id];
+              } else {
+                const cSec = state.sections.find(cs => cs.id === s.id);
+                const cItem = cSec && cSec.items.find(ci => ci.id === i.id);
+                const cImg = cItem && cItem.images.find(cimg => cimg.id === img.id);
+                if (cImg && cImg.dataUrl) img.dataUrl = cImg.dataUrl;
+              }
+            })));
+            if (needsMigration) update(imagesRef, migrationImages).catch(console.error);
+            const remoteSignature = JSON.stringify(remoteState);
+
+            if (!receivedInitialData) {
+              receivedInitialData = true;
+              if (snapshot.exists()) {
+                state = remoteState;
+                saveLocalState();
+                latestLocalSignature = remoteSignature;
+              } else if (state.sections.length > 0) {
+                try {
+                  const stateToSave = JSON.parse(JSON.stringify(state));
+                  stateToSave.sections.forEach(s => s.items && s.items.forEach(i => i.images && i.images.forEach(img => delete img.dataUrl)));
+                  await set(dossierRef, stateToSave);
+                } catch (error) {
+                  console.error('Não foi possível restaurar a cópia local:', error);
+                }
+              } else if (legacyState && legacyState.sections.length > 0) {
+                const migrate = await showConfirm('Há um dossiê antigo salvo neste navegador. Deseja copiá-lo para esta conta?');
+                if (migrate && currentUser && currentUser.uid === user.uid) {
+                  state = normalizeState(legacyState);
+                  saveLocalState();
+                  try {
+                    const stateToSave = JSON.parse(JSON.stringify(state));
+                    stateToSave.sections.forEach(s => s.items && s.items.forEach(i => i.images && i.images.forEach(img => delete img.dataUrl)));
+                    await set(dossierRef, stateToSave);
+                  } catch (error) {
+                    console.error('Não foi possível migrar o dossiê antigo:', error);
+                  }
+                }
+              }
+              databaseReady = true;
+              syncInProgress = false;
+              render();
+              setAccountStatus(`Sincronizado com ${user.email || 'seu e-mail'}.`);
+              return;
+            }
+
+            if (pendingRemoteSignature && remoteSignature !== latestLocalSignature) return;
+            state = remoteState;
+            saveLocalState();
+            latestLocalSignature = remoteSignature;
+            render();
+            setAccountStatus(`Sincronizado com ${user.email || 'seu e-mail'}.`);
+          }, (error) => {
+            console.error('Não foi possível ler o dossiê remoto:', error);
+            syncInProgress = false;
+            setAccountStatus('Dados locais ativos; não foi possível acessar a nuvem.');
+            showAlert('Não foi possível acessar o Firebase. Confirme as regras do Realtime Database e tente novamente.');
+          });
+        });
+
+        setPersistence(auth, browserLocalPersistence).catch((error) => {
+          console.error('Não foi possível manter a sessão do Firebase:', error);
+        });
+      } catch (e) {
+        console.warn('Firebase indisponível (modo offline):', e);
+        setAccountStatus('Modo offline — suas alterações são salvas neste navegador.');
+      }
+    })();
+
   </script>
 
 </body>
